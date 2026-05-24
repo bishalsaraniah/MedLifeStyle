@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Outer medical shield ring -->
+    <path 
+        android:strokeColor="#FFFFFF" 
+        android:strokeWidth="4" 
+        android:fillColor="#00000000" 
+        android:pathData="M 54, 18 A 36, 36 0 1, 1 53.99, 18 Z" />
+
+    <!-- Center Filled medical cross -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 38,47 H 70 V 61 H 38 Z M 47,38 H 61 V 70 H 47 Z" />
+        
+</vector>

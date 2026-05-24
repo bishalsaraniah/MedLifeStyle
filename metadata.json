@@ -1,0 +1,6 @@
+{
+  "name": "Medical Record Organizer",
+  "description": "Secure patient medical records organizer with OCR scanning, health ID, and emergency access.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
