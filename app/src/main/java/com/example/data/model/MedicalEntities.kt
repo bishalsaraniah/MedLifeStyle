@@ -26,13 +26,15 @@ data class MedicalRecord(
 data class EmergencyProfile(
     @PrimaryKey val id: Int = 1, // Single profile owner on the phone
     val fullName: String = "John Doe",
+    val userEmail: String = "john.doe@example.com",
     val bloodType: String = "O+",
-    val dateOfBirth: String = "1990-01-01",
+    val dateOfBirth: String = "01-01-1990",
     val allergies: String = "Penicillin, Peanuts",
     val chronicConditions: String = "Asthma",
     val currentMedications: String = "Albuterol Inhaler as needed",
     val emergencyContactName: String = "Jane Doe",
-    val emergencyContactPhone: String = "+1-555-0199",
+    val emergencyContactPhone: String = "+91-98765-43210",
+    val emergencyContactEmail: String = "jane.doe@example.com",
     val insuranceProvider: String = "Blue Cross",
     val insuranceNumber: String = "BC-98765432-A",
     val organDonor: Boolean = true,

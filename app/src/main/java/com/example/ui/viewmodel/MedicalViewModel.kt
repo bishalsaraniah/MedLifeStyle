@@ -109,8 +109,7 @@ class MedicalViewModel(
                     items = listOf(
                         SduiItem(title = "Total Records", value = recordsCount.toString(), iconName = "History"),
                         SduiItem(title = "Emergencies", value = "0 Triggered", iconName = "Emergency"),
-                        SduiItem(title = "Active Mode", value = if (isDark) "Dark Theme" else "Light Theme", iconName = "Star"),
-                        SduiItem(title = "Last Backup", value = syncStatus, iconName = "Calendar")
+                        SduiItem(title = "Active Mode", value = if (isDark) "Dark Theme" else "Light Theme", iconName = "Star")
                     )
                 ),
                 SduiComponent(
@@ -120,31 +119,35 @@ class MedicalViewModel(
                 SduiComponent(
                     type = "info_list",
                     items = listOf(
+                        SduiItem(title = "Primary User Email", value = if (profile.userEmail.isBlank()) "john.doe@example.com" else profile.userEmail, iconName = "Email"),
                         SduiItem(title = "Date of Birth", value = profile.dateOfBirth, iconName = "Birthday"),
                         SduiItem(title = "Known Allergies", value = profile.allergies, iconName = "Allergy"),
                         SduiItem(title = "Chronic Symptoms", value = profile.chronicConditions, iconName = "Heart"),
                         SduiItem(title = "Active Prescription", value = profile.currentMedications, iconName = "Star"),
-                        SduiItem(title = "Relative Emergency Contact", value = "${profile.emergencyContactName} (${profile.emergencyContactPhone})", iconName = "Contact"),
-                        SduiItem(title = "Insurance Cover", value = "${profile.insuranceProvider} - ${profile.insuranceNumber}", iconName = "Shield")
+                        SduiItem(title = "Relative Emergency Contact Name", value = profile.emergencyContactName, iconName = "Contact"),
+                        SduiItem(title = "Emergency Telephone Helpline", value = profile.emergencyContactPhone, iconName = "Contact"),
+                        SduiItem(title = "Emergency Contact Email", value = if (profile.emergencyContactEmail.isBlank()) "jane.doe@example.com" else profile.emergencyContactEmail, iconName = "Email"),
+                        SduiItem(title = "Insurance Provider Name", value = profile.insuranceProvider.ifBlank { "Not Specified" }, iconName = "Shield"),
+                        SduiItem(title = "Insurance Policy Number", value = profile.insuranceNumber.ifBlank { "Not Specified" }, iconName = "Shield")
                     )
                 ),
                 SduiComponent(
                     type = "section_title",
-                    title = "Remote SDUI Actions & Interactions"
+                    title = "App Settings & Preferences"
                 ),
                 SduiComponent(
                     type = "action_button",
-                    title = "Toggle Light/Dark Theme",
-                    description = "Dispatch server-driven command to swap theme modes directly.",
+                    title = "Display Theme Mode",
+                    description = "Switch between light and dark display modes for comfortable viewing.",
                     iconName = "Star",
                     actionKey = "toggle_theme",
                     themeColor = "primary"
                 ),
                 SduiComponent(
                     type = "action_button",
-                    title = "Force Re-synchronize Storage",
-                    description = "Validate offline state cache against modern health services ledger.",
-                    iconName = "Verified",
+                    title = "Sync & Cloud Backup",
+                    description = "Secure clinical data synchronisation to encrypted cloud storage nodes.",
+                    iconName = "History",
                     actionKey = "sync_cloud",
                     themeColor = "success"
                 )

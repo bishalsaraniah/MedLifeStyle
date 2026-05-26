@@ -17,17 +17,17 @@ private val DarkColorScheme =
     secondary = MedicalSecondaryDark,
     tertiary = MedicalTertiaryDark,
     background = SurfaceDark,
-    surface = SurfaceDark,
+    surface = Color(0xFF1F2128),
     error = EmergencyRedDark,
-    onPrimary = SurfaceDark,
-    onSecondary = SurfaceDark,
+    onPrimary = Color(0xFF00344F),
+    onSecondary = Color(0xFF1E2429),
     onBackground = OnSurfaceDark,
     onSurface = OnSurfaceDark,
-    primaryContainer = PolishPrimaryContainer,
-    onPrimaryContainer = PolishOnPrimaryContainer,
-    surfaceVariant = PolishSurfaceVariant,
-    onSurfaceVariant = PolishOnSurfaceVariant,
-    outline = PolishOutline
+    primaryContainer = Color(0xFF004B6D),
+    onPrimaryContainer = Color(0xFFD1E4FF),
+    surfaceVariant = Color(0xFF282B33),
+    onSurfaceVariant = Color(0xFFC4C7CF),
+    outline = Color(0xFF8E9199)
   )
 
 private val LightColorScheme =

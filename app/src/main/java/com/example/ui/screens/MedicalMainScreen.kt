@@ -36,6 +36,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Path
 import com.example.data.repository.OcrRecordResult
 import com.example.data.model.EmergencyProfile
 import com.example.data.model.MedicalRecord
@@ -50,6 +53,8 @@ import com.example.ui.viewmodel.SyncUiState
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,6 +73,7 @@ fun MedicalMainScreen(
     val isEmergencyFullBright by viewModel.isEmergencyFullBright.collectAsState()
 
     var currentTab by remember { mutableStateOf(0) } // 0: My Records, 1: AI Scan OCR, 2: Emergency Pass, 3: Doctor Access, 4: SDUI User Profile
+    var showAddRecordDialog by remember { mutableStateOf(false) }
 
     // Theme backgrounds depending on full-bright mode
     val mainBackground = if (isEmergencyFullBright) Color.White else MaterialTheme.colorScheme.background
@@ -92,70 +98,28 @@ fun MedicalMainScreen(
                                 .fillMaxWidth()
                                 .background(MaterialTheme.colorScheme.background)
                                 .statusBarsPadding()
-                                .padding(horizontal = 24.dp, vertical = 16.dp),
+                                .padding(horizontal = 24.dp, vertical = 14.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
-                                Text(
-                                    text = "Clinical Vault",
-                                    fontSize = 24.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    letterSpacing = (-0.5).sp,
-                                    color = MaterialTheme.colorScheme.onBackground
-                                )
-                                Text(
-                                    text = "Secure Records",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                // Cloud Sync status
-                                CloudSyncStatusIndicator(
-                                    syncState = syncState,
-                                    onSyncClick = { viewModel.syncRecordsToCloud() }
-                                )
-
-                                // Search simulation active background badge button
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFFDDE2EA))
-                                        .clickable {
-                                            if (currentTab != 0) {
-                                                currentTab = 0
-                                            }
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Search,
-                                        contentDescription = "Search",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(20.dp)
+                                MedLifeStyleLogo(sizeDp = 42.dp)
+                                Column {
+                                    Text(
+                                        text = "MedLifeStyle Vault",
+                                        fontSize = 22.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = (-0.5).sp,
+                                        color = MaterialTheme.colorScheme.onBackground
                                     )
-                                }
-
-                                // Quick Emergency button (Clinical design matching HTML bg-[#93000A])
-                                IconButton(
-                                    onClick = { viewModel.triggerEmergencyMode(true) },
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF93000A))
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Emergency,
-                                        contentDescription = "Trigger Emergency Pass",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(20.dp)
+                                    Text(
+                                        text = "Secure Offline Grid Repository",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
@@ -163,69 +127,108 @@ fun MedicalMainScreen(
                     }
                 },
                 bottomBar = {
-                    Column {
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
-                        NavigationBar(
-                            containerColor = MaterialTheme.colorScheme.surface,
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp, top = 4.dp)
+                    ) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(32.dp),
+                            color = Color.White,
                             tonalElevation = 6.dp,
-                            modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars)
+                            border = BorderStroke(1.dp, Color(0xFFECEFF1))
                         ) {
-                            NavigationBarItem(
-                                selected = currentTab == 0,
-                                onClick = { currentTab = 0 },
-                                icon = {
-                                    Icon(
-                                        imageVector = if (currentTab == 0) Icons.Filled.FolderCopy else Icons.Outlined.FolderCopy,
-                                        contentDescription = "Vault View"
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp, horizontal = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceAround,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val tabsList = listOf(
+                                    Triple(0, "Vault", if (currentTab == 0) Icons.Filled.FolderCopy else Icons.Outlined.FolderCopy),
+                                    Triple(1, "AI Scan", if (currentTab == 1) Icons.Filled.DocumentScanner else Icons.Outlined.DocumentScanner),
+                                    Triple(2, "MedPass", if (currentTab == 2) Icons.Filled.Shield else Icons.Outlined.Shield),
+                                    Triple(3, "Profile", if (currentTab == 3) Icons.Filled.Person else Icons.Outlined.Person)
+                                )
+
+                                tabsList.forEach { (tabIndex, label, icon) ->
+                                    val isSelected = currentTab == tabIndex
+                                    val iconColor by animateColorAsState(
+                                        targetValue = if (isSelected) Color(0xFF00695C) else Color(0xFF78909C),
+                                        label = "iconColor"
                                     )
-                                },
-                                label = { Text("Vault", fontWeight = FontWeight.Bold, fontSize = 10.sp) }
-                            )
-                            NavigationBarItem(
-                                selected = currentTab == 1,
-                                onClick = { currentTab = 1 },
-                                icon = {
-                                    Icon(
-                                        imageVector = if (currentTab == 1) Icons.Filled.DocumentScanner else Icons.Outlined.DocumentScanner,
-                                        contentDescription = "AI Scanner"
+                                    val containerColor by animateColorAsState(
+                                        targetValue = if (isSelected) Color(0xFFE0F2F1) else Color.Transparent,
+                                        label = "containerColor"
                                     )
-                                },
-                                label = { Text("AI Scan", fontWeight = FontWeight.Bold, fontSize = 10.sp) }
-                            )
-                            NavigationBarItem(
-                                selected = currentTab == 2,
-                                onClick = { currentTab = 2 },
-                                icon = {
-                                    Icon(
-                                        imageVector = if (currentTab == 2) Icons.Filled.Shield else Icons.Outlined.Shield,
-                                        contentDescription = "MedPass Link"
-                                    )
-                                },
-                                label = { Text("MedPass ID", fontWeight = FontWeight.Bold, fontSize = 10.sp) }
-                            )
-                            NavigationBarItem(
-                                selected = currentTab == 3,
-                                onClick = { currentTab = 3 },
-                                icon = {
-                                    Icon(
-                                        imageVector = if (currentTab == 3) Icons.Filled.Share else Icons.Outlined.Share,
-                                        contentDescription = "Dr Gateway"
-                                    )
-                                },
-                                label = { Text("Dr. Gateway", fontWeight = FontWeight.Bold, fontSize = 10.sp) }
-                            )
-                            NavigationBarItem(
-                                selected = currentTab == 4,
-                                onClick = { currentTab = 4 },
-                                icon = {
-                                    Icon(
-                                        imageVector = if (currentTab == 4) Icons.Filled.Person else Icons.Outlined.Person,
-                                        contentDescription = "Profile Panel"
-                                    )
-                                },
-                                label = { Text("Profile", fontWeight = FontWeight.Bold, fontSize = 10.sp) }
-                            )
+
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(20.dp))
+                                            .background(containerColor)
+                                            .clickable { currentTab = tabIndex }
+                                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = icon,
+                                                contentDescription = label,
+                                                tint = iconColor,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                            AnimatedVisibility(
+                                                visible = isSelected,
+                                                enter = fadeIn() + expandHorizontally(),
+                                                exit = fadeOut() + shrinkHorizontally()
+                                            ) {
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = label,
+                                                    color = Color(0xFF004D40),
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+                                        
+                                        // Dynamic active dot indicator below the label
+                                        AnimatedVisibility(
+                                            visible = isSelected,
+                                            enter = fadeIn() + expandVertically(),
+                                            exit = fadeOut() + shrinkVertically()
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .padding(top = 2.dp)
+                                                    .size(4.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(0xFF00695C))
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
+                    }
+                },
+                floatingActionButton = {
+                    if (currentTab == 0) {
+                        ExtendedFloatingActionButton(
+                            onClick = { showAddRecordDialog = true },
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            icon = { Icon(Icons.Filled.AddCard, contentDescription = "Add Record") },
+                            text = { Text("Add Record", fontWeight = FontWeight.Bold) },
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
                     }
                 }
             ) { paddingValues ->
@@ -238,9 +241,7 @@ fun MedicalMainScreen(
                         0 -> RecordsDashboard(
                             records = records,
                             emergencyProfile = emergencyProfile ?: EmergencyProfile(),
-                            onEmergencyPassClick = { currentTab = 2 },
                             onDelete = { viewModel.deleteRecord(it) },
-                            onToggleSync = { viewModel.updateRecord(it.copy(isSynced = !it.isSynced)) },
                             onUpdateRecord = { viewModel.updateRecord(it) }
                         )
                         1 -> OcrScannerScreen(
@@ -256,25 +257,177 @@ fun MedicalMainScreen(
                         )
                         2 -> EmergencyProfileScreen(
                             profile = emergencyProfile ?: EmergencyProfile(),
-                            onSave = { updated -> viewModel.updateEmergencyProfile(updated) },
                             onTriggerFullBright = { viewModel.triggerEmergencyMode(true) }
                         )
-                        3 -> DoctorSharingGateway(
-                            records = records,
-                            passcode = doctorPasscode,
-                            onGenerateCode = { viewModel.generateDoctorSharingPasscode() },
-                            onClearCode = { viewModel.clearDoctorSharingPasscode() }
-                        )
-                        4 -> ProfileSduiScreen(
+                        3 -> ProfileSduiScreen(
                             viewModel = viewModel,
                             emergencyProfile = emergencyProfile ?: EmergencyProfile(),
                             recordsCount = records.size,
-                            syncState = syncState
+                            syncState = syncState,
+                            onSaveProfile = { updated -> viewModel.updateEmergencyProfile(updated) }
+                        )
+                    }
+
+                    if (showAddRecordDialog) {
+                        AddRecordDialog(
+                            onDismiss = { showAddRecordDialog = false },
+                            onSave = { title, patient, doctor, hospital, category, summary, diagnoses, medications, dept, disease ->
+                                viewModel.saveManualRecord(
+                                    title = title,
+                                    patientName = patient,
+                                    doctorName = doctor,
+                                    clinicOrHospital = hospital,
+                                    category = category,
+                                    summary = summary,
+                                    diagnoses = diagnoses,
+                                    prescribedMeds = medications,
+                                    department = dept,
+                                    diseaseOrCheckupType = disease
+                                )
+                                showAddRecordDialog = false
+                                Toast.makeText(context, "New record saved successfully", Toast.LENGTH_SHORT).show()
+                            }
                         )
                     }
                 }
             }
         }
+    }
+}
+
+// --- MEDLIFESTYLE BRAND LOGO (NATIVE CANVAS IMPLEMENTATION SPLINE-ACCURATE) ---
+@Composable
+fun MedLifeStyleLogo(
+    modifier: Modifier = Modifier,
+    sizeDp: androidx.compose.ui.unit.Dp = 120.dp
+) {
+    val isDark = isSystemInDarkTheme()
+    val outerOrbitColor = if (isDark) Color(0xFF14B8A6) else Color(0xFF0D9488)
+    val innerCrossColor1 = if (isDark) Color(0xFF0F766E) else Color(0xFF0D9488)
+    val innerCrossColor3 = if (isDark) Color(0xFF4D7C0F) else Color(0xFF65A30D)
+    val nodeColor1 = if (isDark) Color(0xFF22D3EE) else Color(0xFF06B6D4)
+    val nodeColor2 = if (isDark) Color(0xFF65A30D) else Color(0xFF84CC16)
+    val canvasBg = if (isDark) Color(0xFF1E293B) else Color.White
+
+    Canvas(modifier = modifier.size(sizeDp)) {
+        val width = size.width
+        val height = size.height
+
+        // 1. Draw circular orbit outline sweep gradient
+        drawArc(
+            brush = Brush.sweepGradient(
+                0.0f to outerOrbitColor,
+                0.5f to innerCrossColor3,
+                1.0f to outerOrbitColor
+            ),
+            startAngle = 0f,
+            sweepAngle = 360f,
+            useCenter = false,
+            style = Stroke(width = width * 0.04f),
+            topLeft = Offset(width * 0.06f, height * 0.06f),
+            size = Size(width * 0.88f, height * 0.88f)
+        )
+
+        // 2. Draw Orbit nodes (top-right and bottom-left)
+        // Top-right node
+        drawCircle(
+            color = nodeColor2,
+            radius = width * 0.05f,
+            center = Offset(width * 0.85f, height * 0.25f)
+        )
+        // Bottom-left node
+        drawCircle(
+            color = nodeColor1,
+            radius = width * 0.05f,
+            center = Offset(width * 0.15f, height * 0.75f)
+        )
+
+        // 3. Draw Beautiful Medical Cross with center cutout / s-curve
+        val crossWidth = width * 0.46f
+        val crossThickness = width * 0.18f
+        
+        val vertLeft = (width - crossThickness) / 2f
+        val vertTop = (height - crossWidth) / 2f
+        val horizLeft = (width - crossWidth) / 2f
+        val horizTop = (height - crossThickness) / 2f
+        
+        val crossBrush = Brush.linearGradient(
+            colors = listOf(innerCrossColor1, innerCrossColor3),
+            start = Offset(0f, 0f),
+            end = Offset(width, height)
+        )
+
+        // Vertical arm
+        drawRoundRect(
+            brush = crossBrush,
+            topLeft = Offset(vertLeft, vertTop),
+            size = Size(crossThickness, crossWidth),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(width * 0.04f, width * 0.04f)
+        )
+        // Horizontal arm
+        drawRoundRect(
+            brush = crossBrush,
+            topLeft = Offset(horizLeft, horizTop),
+            size = Size(crossWidth, crossThickness),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(width * 0.04f, width * 0.04f)
+        )
+
+        // 4. White central "S"-curve path cutout
+        val sPath = Path().apply {
+            moveTo(width * 0.44f, height * 0.36f)
+            cubicTo(
+                width * 0.36f, height * 0.41f,
+                width * 0.36f, height * 0.47f,
+                width * 0.50f, height * 0.50f
+            )
+            cubicTo(
+                width * 0.64f, height * 0.53f,
+                width * 0.64f, height * 0.59f,
+                width * 0.56f, height * 0.64f
+            )
+        }
+        drawPath(
+            path = sPath,
+            color = canvasBg,
+            style = Stroke(width = width * 0.05f, cap = StrokeCap.Round)
+        )
+
+        // 5. Scattering digital pixel blocks (squares) on both sides
+        val squareUnit = width * 0.045f
+        
+        // Left scattering pixels
+        drawRect(
+            color = nodeColor1,
+            topLeft = Offset(width * 0.28f, height * 0.35f),
+            size = Size(squareUnit, squareUnit)
+        )
+        drawRect(
+            color = nodeColor1,
+            topLeft = Offset(width * 0.34f, height * 0.29f),
+            size = Size(squareUnit, squareUnit)
+        )
+        drawRect(
+            color = nodeColor1,
+            topLeft = Offset(width * 0.25f, height * 0.44f),
+            size = Size(squareUnit, squareUnit)
+        )
+
+        // Right scattering pixels
+        drawRect(
+            color = nodeColor2,
+            topLeft = Offset(width * 0.68f, height * 0.61f),
+            size = Size(squareUnit, squareUnit)
+        )
+        drawRect(
+            color = nodeColor2,
+            topLeft = Offset(width * 0.74f, height * 0.54f),
+            size = Size(squareUnit, squareUnit)
+        )
+        drawRect(
+            color = nodeColor2,
+            topLeft = Offset(width * 0.60f, height * 0.67f),
+            size = Size(squareUnit, squareUnit)
+        )
     }
 }
 
@@ -419,56 +572,71 @@ fun EmergencyAccessBadgeCard(
 fun RecordsDashboard(
     records: List<MedicalRecord>,
     emergencyProfile: EmergencyProfile,
-    onEmergencyPassClick: () -> Unit,
     onDelete: (MedicalRecord) -> Unit,
-    onToggleSync: (MedicalRecord) -> Unit,
     onUpdateRecord: (MedicalRecord) -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf("All") }
-    
-    // Sub-tab: 0 = Timeline Feed, 1 = Disease & Checkups Tracking
-    var dashboardTab by remember { mutableStateOf(0) }
-    
-    // Disease Tracking state fields
-    var selectedDeptFilter by remember { mutableStateOf("All Departments") }
-    var selectedHospitalFilter by remember { mutableStateOf("All Hospitals") }
-    var showDeptDropdown by remember { mutableStateOf(false) }
-    var showHospitalDropdown by remember { mutableStateOf(false) }
-    
+    var selectedSpecialtyForDetail by remember { mutableStateOf<String?>(null) }
     // Active record being edited
     var editingRecord by remember { mutableStateOf<MedicalRecord?>(null) }
 
-    val categories = listOf("All", "Prescription", "Lab Report", "Vaccine", "Discharge Summary", "Radiology / Scan", "Other")
+    // List of Specialties as in Mockup 1
+    val specialtiesList = listOf(
+        Triple("Cardiology", Icons.Filled.Favorite, "SPECIALTY"),
+        Triple("Dermatology", Icons.Filled.Healing, "SPECIALTY"),
+        Triple("Pediatrics", Icons.Filled.ChildCare, "SPECIALTY"),
+        Triple("Orthopedics", Icons.Filled.AccessibilityNew, "SPECIALTY"),
+        Triple("Neurology", Icons.Filled.Psychology, "SPECIALTY"),
+        Triple("General Medicine", Icons.Filled.MedicalServices, "PRIMARY"),
+        Triple("Lab Reports", Icons.Filled.Biotech, "LABS"),
+        Triple("Vaccines", Icons.Filled.Vaccines, "PREVENTIVE"),
+        Triple("Radiology / Scan", Icons.Filled.Visibility, "DIAGNOSIS"),
+        Triple("Others", Icons.Filled.Folder, "RECORDS")
+    )
 
-    // Filter logic for Timeline Feed
-    val filteredTimelineRecords = records.filter { record ->
-        val matchesCategory = selectedCategory == "All" || record.category.equals(selectedCategory, ignoreCase = true)
-        val matchesSearch = record.title.contains(searchQuery, ignoreCase = true) ||
-                record.doctorName.contains(searchQuery, ignoreCase = true) ||
-                record.clinicOrHospital.contains(searchQuery, ignoreCase = true) ||
-                record.diagnoses.contains(searchQuery, ignoreCase = true) ||
-                record.summary.contains(searchQuery, ignoreCase = true) ||
-                record.department.contains(searchQuery, ignoreCase = true) ||
-                record.diseaseOrCheckupType.contains(searchQuery, ignoreCase = true)
-        matchesCategory && matchesSearch
+    // Helper to count records dynamically
+    fun countRecordsForSpecialty(specialty: String, recordsList: List<MedicalRecord>): Int {
+        return recordsList.count { record ->
+            record.department.equals(specialty, ignoreCase = true) ||
+            record.category.equals(specialty, ignoreCase = true) ||
+            record.diseaseOrCheckupType.equals(specialty, ignoreCase = true) ||
+            (specialty == "Radiology / Scan" && record.category.contains("Radiology", ignoreCase = true)) ||
+            (specialty == "Lab Reports" && record.category.contains("Lab", ignoreCase = true)) ||
+            (specialty == "Vaccines" && record.category.contains("Vaccine", ignoreCase = true)) ||
+            (specialty == "Others" && !listOf("Cardiology", "Dermatology", "Pediatrics", "Orthopedics", "Neurology", "Radiology / Scan", "General Medicine", "Lab Reports", "Vaccines").any {
+                record.department.equals(it, ignoreCase = true) || record.category.equals(it, ignoreCase = true)
+            })
+        }
     }
 
-    // Filter logic for Disease Tracker
-    val filteredTrackerRecords = records.filter { record ->
-        val matchesDept = selectedDeptFilter == "All Departments" || record.department.equals(selectedDeptFilter, ignoreCase = true)
-        val matchesHospital = selectedHospitalFilter == "All Hospitals" || record.clinicOrHospital.equals(selectedHospitalFilter, ignoreCase = true)
-        val matchesSearch = searchQuery.isBlank() || 
-                record.title.contains(searchQuery, ignoreCase = true) ||
-                record.diseaseOrCheckupType.contains(searchQuery, ignoreCase = true) ||
-                record.diagnoses.contains(searchQuery, ignoreCase = true) ||
-                record.summary.contains(searchQuery, ignoreCase = true)
-        matchesDept && matchesHospital && matchesSearch
+    // Filter logic based on global search query
+    val searchedRecords = records.filter { record ->
+        record.title.contains(searchQuery, ignoreCase = true) ||
+        record.doctorName.contains(searchQuery, ignoreCase = true) ||
+        record.clinicOrHospital.contains(searchQuery, ignoreCase = true) ||
+        record.diagnoses.contains(searchQuery, ignoreCase = true) ||
+        record.summary.contains(searchQuery, ignoreCase = true) ||
+        record.department.contains(searchQuery, ignoreCase = true) ||
+        record.diseaseOrCheckupType.contains(searchQuery, ignoreCase = true) ||
+        record.category.contains(searchQuery, ignoreCase = true)
     }
 
-    // Grouping by Disease / Checkup Type
-    val groupedByDisease = remember(filteredTrackerRecords) {
-        filteredTrackerRecords.groupBy { it.diseaseOrCheckupType }.toList().sortedByDescending { it.second.size }
+    // Filter logic for selected category
+    val detailRecords = remember(selectedSpecialtyForDetail, records) {
+        if (selectedSpecialtyForDetail == null) emptyList() else {
+            val spec = selectedSpecialtyForDetail!!
+            records.filter { record ->
+                record.department.equals(spec, ignoreCase = true) ||
+                record.category.equals(spec, ignoreCase = true) ||
+                record.diseaseOrCheckupType.equals(spec, ignoreCase = true) ||
+                (spec == "Radiology / Scan" && record.category.contains("Radiology", ignoreCase = true)) ||
+                (spec == "Lab Reports" && record.category.contains("Lab", ignoreCase = true)) ||
+                (spec == "Vaccines" && record.category.contains("Vaccine", ignoreCase = true)) ||
+                (spec == "Others" && !listOf("Cardiology", "Dermatology", "Pediatrics", "Orthopedics", "Neurology", "Radiology / Scan", "General Medicine", "Lab Reports", "Vaccines").any {
+                    record.department.equals(it, ignoreCase = true) || record.category.equals(it, ignoreCase = true)
+                })
+            }
+        }
     }
 
     // Edit Dialog display trigger
@@ -483,75 +651,564 @@ fun RecordsDashboard(
         )
     }
 
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF9FBFB)),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Search bar (Active matches show search results, inactive shows category selector)
+        item {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                if (searchQuery.isEmpty() && selectedSpecialtyForDetail == null) {
+                    // Title and subtitle matching Image 1
+                    Text(
+                        text = "Health Categories",
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF004D40) // Deep dark teal
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Organize and access your clinical documentation by medical specialty.",
+                        fontSize = 14.sp,
+                        color = Color(0xFF455A64), // Charcoal gray subtext
+                        lineHeight = 20.sp
+                    )
+                    Spacer(modifier = Modifier.height(20.dp))
+                } else if (selectedSpecialtyForDetail != null && searchQuery.isEmpty()) {
+                    // Clickable row representing a beautiful back route
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { selectedSpecialtyForDetail = null }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.ArrowBack,
+                            contentDescription = "Back to categories",
+                            tint = Color(0xFF00695C),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "${selectedSpecialtyForDetail}",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF004D40)
+                        )
+                    }
+                    Text(
+                        text = "Access your localized SHA-256 secure offline clinical ledger items for $selectedSpecialtyForDetail.",
+                        fontSize = 12.sp,
+                        color = Color(0xFF546E7A),
+                        modifier = Modifier.padding(start = 36.dp, bottom = 12.dp)
+                    )
+                }
+
+                // Rounded Capsule Search Bar
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    placeholder = { Text("Search your records...", fontSize = 15.sp, color = Color(0xFF78909C)) },
+                    leadingIcon = { Icon(Icons.Filled.Search, "Search", tint = Color(0xFF00695C)) },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Filled.Close, "Clear search", tint = Color(0xFF455A64))
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(24.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color(0xFFF1F5F7),
+                        unfocusedContainerColor = Color(0xFFF1F5F7),
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent,
+                        disabledBorderColor = Color.Transparent,
+                        errorBorderColor = Color.Transparent
+                    ),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
+                )
+            }
+        }
+
+        if (searchQuery.isNotEmpty()) {
+            // Unifed Search Results listing
+            item {
+                Text(
+                    text = "SEARCH RESULTS (${searchedRecords.size} found)",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    color = Color(0xFF00695C),
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+            if (searchedRecords.isEmpty()) {
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 48.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.FolderOpen,
+                            contentDescription = null,
+                            modifier = Modifier.size(72.dp),
+                            tint = Color(0xFFB0BEC5)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "No medical logs correspond to '$searchQuery'",
+                            fontSize = 15.sp,
+                            color = Color(0xFF546E7A),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            } else {
+                items(searchedRecords, key = { it.id }) { record ->
+                    RecordCardItem(
+                        record = record,
+                        onDelete = { onDelete(record) },
+                        onEdit = { editingRecord = record }
+                    )
+                }
+            }
+        } else if (selectedSpecialtyForDetail != null) {
+            // Showing records specifically for selected specialty
+            val recordsInSpecList = detailRecords
+            if (recordsInSpecList.isEmpty()) {
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 48.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.AddCard,
+                            contentDescription = null,
+                            modifier = Modifier.size(80.dp),
+                            tint = Color(0xFFB0BEC5)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "No $selectedSpecialtyForDetail records found",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF455A64)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Click 'Add Record' or transition to 'AI Scan' to create records in this category.",
+                            fontSize = 13.sp,
+                            color = Color(0xFF78909C),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 24.dp)
+                        )
+                    }
+                }
+            } else {
+                items(recordsInSpecList, key = { it.id }) { record ->
+                    RecordCardItem(
+                        record = record,
+                        onDelete = { onDelete(record) },
+                        onEdit = { editingRecord = record }
+                    )
+                }
+            }
+        } else {
+            // General clinical grid of Specialties mapping elegantly
+            val chunkedSpecialties = specialtiesList.chunked(2)
+            items(chunkedSpecialties) { rowItems ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    rowItems.forEach { (title, icon, badge) ->
+                        val count = countRecordsForSpecialty(title, records)
+                        Box(modifier = Modifier.weight(1f)) {
+                            SpecialtyCard(
+                                title = title,
+                                icon = icon,
+                                badgeText = badge,
+                                recordCount = count,
+                                onClick = { selectedSpecialtyForDetail = title }
+                            )
+                        }
+                    }
+                    if (rowItems.size < 2) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SpecialtyCard(
+    title: String,
+    icon: ImageVector,
+    badgeText: String,
+    recordCount: Int,
+    onClick: () -> Unit
+) {
+    val activeTeal = Color(0xFF00695C)
+    val lightAqua = Color(0xFFE0F2F1)
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, Color(0xFFECEFF1).copy(alpha = 0.8f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(54.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(lightAqua),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = title,
+                        tint = activeTeal,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+                
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFE0F2F1), // Light greenish blue/teal background style
+                    border = BorderStroke(1.dp, Color(0xFFB2DFDB))
+                ) {
+                    Text(
+                        text = badgeText,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        color = Color(0xFF00796B),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(18.dp))
+            
+            Text(
+                text = title,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1D333A)
+            )
+            
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.FolderOpen,
+                    contentDescription = null,
+                    tint = Color(0xFF78909C),
+                    modifier = Modifier.size(15.dp)
+                )
+                Text(
+                    text = "$recordCount records",
+                    fontSize = 13.sp,
+                    color = Color(0xFF546E7A),
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+    }
+}
+
+/*
+private fun dummy() {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp)
     ) {
-        // Search bar
+        // 1. Personal Health Vault Portfolio Header
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 10.dp, bottom = 8.dp),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+            ),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(50.dp)
+                            .clip(CircleShape)
+                            .background(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        MaterialTheme.colorScheme.primary,
+                                        MaterialTheme.colorScheme.secondary
+                                    )
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = emergencyProfile.fullName.ifBlank { "Unspecified" }.take(2).uppercase(),
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = emergencyProfile.fullName.ifBlank { "Vault Owner" },
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Credentialed Patient Portfolio",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    
+                    // Blood badge
+                    val currentBlood = emergencyProfile.bloodType.ifBlank { "Not Set" }
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.2f))
+                    ) {
+                        Text(
+                            text = currentBlood,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Stats Row Grid
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Stat 1: Total records
+                    Column(horizontalAlignment = Alignment.Start) {
+                        Text(
+                            text = "TOTAL RECORDS",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            letterSpacing = 0.8.sp
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "${records.size} Lines",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    // Stat 2: Security status
+                    Column(horizontalAlignment = Alignment.Start) {
+                        Text(
+                            text = "VAULT SECURITY",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            letterSpacing = 0.8.sp
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.Lock,
+                                contentDescription = "AES-256 Secured",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "SHA-256",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    // Stat 3: Sync Status
+                    Column(horizontalAlignment = Alignment.Start) {
+                        Text(
+                            text = "STORAGE MODE",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            letterSpacing = 0.8.sp
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.CloudOff,
+                                contentDescription = "Offline Vault Activated",
+                                tint = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Local Guard",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Beautiful Capsule sliding/rounded tab selector
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.25f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                val subTabs = listOf(
+                    0 to "Timeline Feed" to Icons.Filled.List,
+                    1 to "Condition Tracking" to Icons.Filled.Favorite
+                )
+
+                subTabs.forEach { (tabIdAndName, icon) ->
+                    val (tabId, tabName) = tabIdAndName
+                    val isTabSelected = dashboardTab == tabId
+                    val activeColor = if (isTabSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    val bgPillColor = if (isTabSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(bgPillColor)
+                            .clickable { dashboardTab = tabId }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = tabName,
+                                tint = activeColor,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = tabName,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = activeColor
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Ultra-Modern Search Bar
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 12.dp),
-            placeholder = { Text("Search title, doctor, condition, center...") },
-            leadingIcon = { Icon(Icons.Filled.Search, "Search") },
+                .padding(bottom = 12.dp),
+            placeholder = { Text("Search records, diagnoses, symptoms...", fontSize = 13.sp) },
+            leadingIcon = { Icon(Icons.Filled.Search, "Search", tint = MaterialTheme.colorScheme.primary) },
             trailingIcon = {
                 if (searchQuery.isNotEmpty()) {
                     IconButton(onClick = { searchQuery = "" }) {
-                        Icon(Icons.Filled.Close, "Clear search")
+                        Icon(Icons.Filled.Close, "Clear search", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             },
+            singleLine = true,
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = MaterialTheme.colorScheme.surface,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surface
-            )
-        )
-
-        // Emergency Access Badge Card matching Design HTML exactly!
-        EmergencyAccessBadgeCard(
-            profile = emergencyProfile,
-            onClick = onEmergencyPassClick
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+            ),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
         )
 
         Spacer(modifier = Modifier.height(8.dp))
-
-        // Sub-tabs Segmented Selector (Material 3 TabRow)
-        TabRow(
-            selectedTabIndex = dashboardTab,
-            containerColor = Color.Transparent,
-            contentColor = Color(0xFF006492),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp)
-        ) {
-            Tab(
-                selected = dashboardTab == 0,
-                onClick = { dashboardTab = 0 },
-                text = { Text("Timeline Feed", fontWeight = FontWeight.Bold, fontSize = 13.sp) },
-                icon = { Icon(Icons.Filled.List, contentDescription = null, modifier = Modifier.size(18.dp)) }
-            )
-            Tab(
-                selected = dashboardTab == 1,
-                onClick = { dashboardTab = 1 },
-                text = { Text("Condition Tracking", fontWeight = FontWeight.Bold, fontSize = 13.sp) },
-                icon = { Icon(Icons.Filled.Favorite, contentDescription = null, modifier = Modifier.size(18.dp)) }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
 
         if (dashboardTab == 0) {
             // --- TAB 0: TIMELINE FEED ---
             Text(
                 text = "Categories",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF41484D),
-                letterSpacing = 1.sp,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.primary,
+                letterSpacing = 1.1.sp,
                 modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
             )
 
@@ -567,22 +1224,22 @@ fun RecordsDashboard(
                     FilterChip(
                         selected = isSelected,
                         onClick = { selectedCategory = category },
-                        label = { Text(category, fontWeight = FontWeight.SemiBold) },
+                        label = { Text(category, fontWeight = FontWeight.Bold) },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFFD1E4FF),
-                            selectedLabelColor = Color(0xFF001D36),
-                            containerColor = Color.White,
-                            labelColor = Color(0xFF41484D)
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
                         ),
                         border = FilterChipDefaults.filterChipBorder(
                             enabled = true,
                             selected = isSelected,
-                            borderColor = Color(0xFFDDE2EA),
-                            selectedBorderColor = Color(0xFF006492),
+                            borderColor = MaterialTheme.colorScheme.outlineVariant,
+                            selectedBorderColor = MaterialTheme.colorScheme.primary,
                             borderWidth = 1.dp,
-                            selectedBorderWidth = 1.dp
+                            selectedBorderWidth = 1.5.dp
                         ),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(12.dp)
                     )
                 }
             }
@@ -597,16 +1254,16 @@ fun RecordsDashboard(
             ) {
                 Text(
                     text = "Recent Medical Documents",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF41484D),
-                    letterSpacing = 1.sp
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    letterSpacing = 1.1.sp
                 )
                 Text(
                     text = "Reset Filter",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF006492),
+                    color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.clickable {
                         selectedCategory = "All"
                         searchQuery = ""
@@ -663,7 +1320,6 @@ fun RecordsDashboard(
                         RecordCardItem(
                             record = record,
                             onDelete = { onDelete(record) },
-                            onToggleSync = { onToggleSync(record) },
                             onEdit = { editingRecord = record }
                         )
                     }
@@ -817,8 +1473,8 @@ fun RecordsDashboard(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(20.dp))
-                                .border(1.dp, Color(0xFFDDE2EA), RoundedCornerShape(20.dp))
-                                .background(Color.White)
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
                         ) {
                             // Disease Header card
                             Row(
@@ -838,13 +1494,13 @@ fun RecordsDashboard(
                                         modifier = Modifier
                                             .size(44.dp)
                                             .clip(RoundedCornerShape(12.dp))
-                                            .background(Color(0xFFE3F2FD)),
+                                            .background(MaterialTheme.colorScheme.primaryContainer),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Filled.Favorite,
                                             contentDescription = null,
-                                            tint = Color(0xFF006492),
+                                            tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(24.dp)
                                         )
                                     }
@@ -853,7 +1509,7 @@ fun RecordsDashboard(
                                             text = diseaseType,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 16.sp,
-                                            color = Color.Black
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
@@ -863,13 +1519,13 @@ fun RecordsDashboard(
                                                 text = "${diseaseRecords.size} Checkups done",
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.SemiBold,
-                                                color = Color(0xFF006492)
+                                                color = MaterialTheme.colorScheme.primary
                                             )
-                                            Text("·", fontSize = 12.sp, color = Color.Gray)
+                                            Text("·", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             Text(
                                                 text = diseaseRecords.firstOrNull()?.department ?: "General",
                                                 fontSize = 12.sp,
-                                                color = Color.Gray
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
                                     }
@@ -877,7 +1533,7 @@ fun RecordsDashboard(
                                 Icon(
                                     imageVector = if (openTimeline) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
                                     contentDescription = "Toggle timeline viewer",
-                                    tint = Color(0xFF006492)
+                                    tint = MaterialTheme.colorScheme.primary
                                 )
                             }
                             
@@ -890,16 +1546,16 @@ fun RecordsDashboard(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .background(Color(0xFFF8FAFC))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
                                         .padding(horizontal = 16.dp, vertical = 20.dp)
                                 ) {
-                                    Divider(color = Color(0xFFE2E8F0), modifier = Modifier.padding(bottom = 16.dp))
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp, modifier = Modifier.padding(bottom = 16.dp))
                                     
                                     Text(
                                         text = "CHRONOLOGICAL HEALTH TIMELINE",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Black,
-                                        color = Color(0xFF006492),
+                                        color = MaterialTheme.colorScheme.primary,
                                         letterSpacing = 1.sp,
                                         modifier = Modifier.padding(bottom = 16.dp)
                                     )
@@ -922,15 +1578,15 @@ fun RecordsDashboard(
                                                     modifier = Modifier
                                                         .size(16.dp)
                                                         .clip(CircleShape)
-                                                        .background(Color(0xFF006492))
-                                                        .border(3.dp, Color.White, CircleShape)
+                                                        .background(MaterialTheme.colorScheme.primary)
+                                                        .border(3.dp, MaterialTheme.colorScheme.background, CircleShape)
                                                 )
                                                 if (index < sortedList.size - 1) {
                                                     Box(
                                                         modifier = Modifier
                                                             .width(2.dp)
                                                             .height(110.dp)
-                                                            .background(Color(0xFFC2E7FF))
+                                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
                                                     )
                                                 }
                                             }
@@ -940,8 +1596,8 @@ fun RecordsDashboard(
                                                 modifier = Modifier
                                                     .weight(1f)
                                                     .clip(RoundedCornerShape(16.dp))
-                                                    .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(16.dp)),
-                                                colors = CardDefaults.cardColors(containerColor = Color.White)
+                                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(16.dp)),
+                                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                                             ) {
                                                 Column(modifier = Modifier.padding(12.dp)) {
                                                     Row(
@@ -953,16 +1609,16 @@ fun RecordsDashboard(
                                                             text = dateStr,
                                                             fontSize = 11.sp,
                                                             fontWeight = FontWeight.Bold,
-                                                            color = Color(0xFF006492)
+                                                            color = MaterialTheme.colorScheme.primary
                                                         )
                                                         Text(
                                                             text = record.category,
                                                             fontSize = 10.sp,
                                                             fontWeight = FontWeight.Bold,
-                                                            color = Color.DarkGray,
+                                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
                                                             modifier = Modifier
                                                                 .clip(RoundedCornerShape(4.dp))
-                                                                .background(Color(0xFFEEF1F6))
+                                                                .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f))
                                                                 .padding(horizontal = 4.dp, vertical = 2.dp)
                                                         )
                                                     }
@@ -971,18 +1627,18 @@ fun RecordsDashboard(
                                                         text = record.title,
                                                         fontSize = 13.sp,
                                                         fontWeight = FontWeight.Bold,
-                                                        color = Color.Black
+                                                        color = MaterialTheme.colorScheme.onSurface
                                                     )
                                                     Text(
                                                         text = "Doctor: ${record.doctorName} (${record.clinicOrHospital})",
                                                         fontSize = 11.sp,
-                                                        color = Color.Gray
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                                     )
                                                     Spacer(modifier = Modifier.height(6.dp))
                                                     Text(
                                                         text = record.summary,
                                                         fontSize = 11.sp,
-                                                        color = Color.DarkGray,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                                                         maxLines = 2,
                                                         overflow = TextOverflow.Ellipsis
                                                     )
@@ -996,14 +1652,14 @@ fun RecordsDashboard(
                                                             onClick = { editingRecord = record },
                                                             modifier = Modifier.size(24.dp)
                                                         ) {
-                                                            Icon(Icons.Filled.Edit, null, tint = Color(0xFF006492), modifier = Modifier.size(14.dp))
+                                                            Icon(Icons.Filled.Edit, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
                                                         }
                                                         Spacer(modifier = Modifier.width(8.dp))
                                                         IconButton(
                                                             onClick = { onDelete(record) },
                                                             modifier = Modifier.size(24.dp)
                                                         ) {
-                                                            Icon(Icons.Filled.Delete, null, tint = EmergencyRed, modifier = Modifier.size(14.dp))
+                                                            Icon(Icons.Filled.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
                                                         }
                                                     }
                                                 }
@@ -1019,13 +1675,13 @@ fun RecordsDashboard(
         }
     }
 }
+*/
 
 // Single Expanded Medical Record view item
 @Composable
 fun RecordCardItem(
     record: MedicalRecord,
     onDelete: () -> Unit,
-    onToggleSync: () -> Unit,
     onEdit: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -1035,22 +1691,40 @@ fun RecordCardItem(
         sdf.format(Date(record.date))
     }
 
+    val isDark = isSystemInDarkTheme()
     val bannerColor = when (record.category) {
-        "Prescription" -> Color(0xFFD2E8D4) to Color(0xFF00210B) // Medication
-        "Lab Report" -> Color(0xFFD1E4FF) to Color(0xFF001D36) // Lab Results
-        "Radiology / Scan" -> Color(0xFFFAD8FD) to Color(0xFF2B1230) // Imaging
-        "Discharge Summary", "Vaccine" -> Color(0xFFFFDCC0) to Color(0xFF2F1500) // History
-        else -> Color(0xFFEEF1F6) to Color(0xFF41484D) // Other
+        "Prescription" -> {
+            if (isDark) Color(0xFF1E3524) to Color(0xFFC8E6C9)
+            else Color(0xFFD2E8D4) to Color(0xFF00210B)
+        }
+        "Lab Report" -> {
+            if (isDark) Color(0xFF132A46) to Color(0xFFC2E7FF)
+            else Color(0xFFD1E4FF) to Color(0xFF001D36)
+        }
+        "Radiology / Scan" -> {
+            if (isDark) Color(0xFF381E3B) to Color(0xFFFCDDFA)
+            else Color(0xFFFAD8FD) to Color(0xFF2B1230)
+        }
+        "Discharge Summary", "Vaccine" -> {
+            if (isDark) Color(0xFF452D1C) to Color(0xFFFFECE0)
+            else Color(0xFFFFDCC0) to Color(0xFF2F1500)
+        }
+        else -> {
+            if (isDark) Color(0xFF2E3135) to Color(0xFFE2E2E2)
+            else Color(0xFFEEF1F6) to Color(0xFF41484D)
+        }
     }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
-            .border(1.dp, Color(0xFFDDE2EA), RoundedCornerShape(24.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(24.dp))
             .clickable { expanded = !expanded },
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+        )
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             // Header Row (Visual Category styling)
@@ -1076,18 +1750,50 @@ fun RecordCardItem(
                                 .background(bannerColor.second.copy(alpha = 0.12f))
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         )
+
                         if (record.isSynced) {
                             Row(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0xFFE8F5E9).copy(alpha = 0.18f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Filled.CloudDone,
-                                    contentDescription = "Synced",
-                                    tint = Color(0xFF2E7D32),
+                                    contentDescription = "Synced to clinical ledger",
+                                    tint = if (isDark) Color(0xFFC8E6C9) else Color(0xFF2E7D32),
                                     modifier = Modifier.size(12.dp)
                                 )
-                                Text("Vaulted", fontSize = 10.sp, color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = "Synced",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isDark) Color(0xFFC8E6C9) else Color(0xFF2E7D32)
+                                )
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0xFFFFECE0).copy(alpha = 0.15f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.CloudQueue,
+                                    contentDescription = "Local Ledger",
+                                    tint = if (isDark) Color(0xFFFFCC80) else Color(0xFFE65100),
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Text(
+                                    text = "Local Only",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isDark) Color(0xFFFFCC80) else Color(0xFFE65100)
+                                )
                             }
                         }
                     }
@@ -1096,7 +1802,7 @@ fun RecordCardItem(
                         text = record.title,
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
-                        color = Color.Black
+                        color = if (isDark) MaterialTheme.colorScheme.onSurface else bannerColor.second
                     )
                 }
 
@@ -1345,35 +2051,22 @@ fun RecordCardItem(
                         Spacer(modifier = Modifier.height(16.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                            horizontalArrangement = Arrangement.End,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            TextButton(
-                                onClick = onToggleSync,
-                                colors = ButtonDefaults.textButtonColors(contentColor = bannerColor.second)
-                            ) {
-                                Icon(
-                                    imageVector = if (record.isSynced) Icons.Filled.CloudOff else Icons.Filled.CloudSync,
-                                    contentDescription = "Cloud Vault Sync Toggle",
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(if (record.isSynced) "Make Offline" else "Store In Cloud", fontSize = 13.sp)
-                            }
-
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 IconButton(
                                     onClick = onEdit,
-                                    colors = IconButtonDefaults.iconButtonColors(contentColor = Color(0xFF006492))
+                                    colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                                 ) {
                                     Icon(Icons.Filled.Edit, "Edit Medical Record")
                                 }
                                 IconButton(
                                     onClick = onDelete,
-                                    colors = IconButtonDefaults.iconButtonColors(contentColor = EmergencyRed)
+                                    colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.error)
                                 ) {
                                     Icon(Icons.Filled.DeleteSweep, "Delete Medical Record")
                                 }
@@ -2367,39 +3060,25 @@ fun OcrScannerScreen(
 @Composable
 fun EmergencyProfileScreen(
     profile: EmergencyProfile,
-    onSave: (EmergencyProfile) -> Unit,
     onTriggerFullBright: () -> Unit
 ) {
-    var isEditing by remember { mutableStateOf(false) }
-
-    // State bindings
-    var name by remember(profile) { mutableStateOf(profile.fullName) }
-    var bloodType by remember(profile) { mutableStateOf(profile.bloodType) }
-    var dob by remember(profile) { mutableStateOf(profile.dateOfBirth) }
-    var allergies by remember(profile) { mutableStateOf(profile.allergies) }
-    var conditions by remember(profile) { mutableStateOf(profile.chronicConditions) }
-    var meds by remember(profile) { mutableStateOf(profile.currentMedications) }
-    var contactsName by remember(profile) { mutableStateOf(profile.emergencyContactName) }
-    var contactsPhone by remember(profile) { mutableStateOf(profile.emergencyContactPhone) }
-    var insurance by remember(profile) { mutableStateOf(profile.insuranceProvider) }
-    var policyId by remember(profile) { mutableStateOf(profile.insuranceNumber) }
-    var donor by remember(profile) { mutableStateOf(profile.organDonor) }
-
-    val bloodTypesList = listOf("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-")
+    val isDark = isSystemInDarkTheme()
+    val context = LocalContext.current
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(bottom = 24.dp)
+        contentPadding = PaddingValues(bottom = 32.dp)
     ) {
+        // 1. Interactive Pass trigger Red panel
         item {
-            // Big Emergency Trigger Widget
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = EmergencyRed),
-                shape = RoundedCornerShape(24.dp)
+                shape = RoundedCornerShape(24.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp),
@@ -2410,17 +3089,17 @@ fun EmergencyProfileScreen(
                         imageVector = Icons.Filled.AddModerator,
                         contentDescription = "Paramedic Medpass Icon",
                         tint = Color.White,
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier.size(52.dp)
                     )
                     Text(
                         text = "EMERGENCY MEDPASS ID",
                         fontWeight = FontWeight.Black,
-                        fontSize = 18.sp,
+                        fontSize = 20.sp,
                         color = Color.White,
-                        letterSpacing = 1.sp
+                        letterSpacing = 1.2.sp
                     )
                     Text(
-                        text = "Press below to open a full-brightness, high-contrast critical health card widget. Intended for emergency responders or doctors to see your record instantly without password unlock.",
+                        text = "Instantly trigger high-contrast solar screen mode so paramedics and clinical staff can scan your core vitals without passcodes.",
                         fontSize = 12.sp,
                         color = Color.White.copy(alpha = 0.85f),
                         textAlign = TextAlign.Center
@@ -2432,146 +3111,298 @@ fun EmergencyProfileScreen(
                         shape = RoundedCornerShape(50.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp)
+                            .height(50.dp)
                     ) {
-                        Icon(Icons.Filled.FlashOn, "Full bright")
+                        Icon(Icons.Filled.FlashOn, "Full bright", modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("SHOW ACCESSIBILITY EMERGENCY PASS", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("OPEN HIGH-CONTRAST MEDPASS ID", fontWeight = FontWeight.Black, fontSize = 12.sp)
                     }
                 }
             }
         }
 
+        // 2. High-Tech PHYSICAL SMART CARD / MEDPASS ID Card (Natively drawn chip and NFC)
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(210.dp),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outlineVariant)
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    // Background soft dynamic gradient
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.linearGradient(
+                                    colors = if (isDark) listOf(Color(0xFF0F172A), Color(0xFF1E1B4B))
+                                    else listOf(Color(0xFFF8FAFC), Color(0xFFE0E7FF)),
+                                    start = Offset(0f, 0f),
+                                    end = Offset(1000f, 1000f)
+                                )
+                            )
+                    )
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(20.dp),
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        // Card Header (MedLifeStyle logo, Brand title, RFID NFC canvas indicator)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                MedLifeStyleLogo(sizeDp = 30.dp)
+                                Column {
+                                    Text(
+                                        text = "MedLifeStyle",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = if (isDark) Color.White else Color(0xFF1E293B)
+                                    )
+                                    Text(
+                                        text = "OFFLINE SMART PASS",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        letterSpacing = 1.sp
+                                    )
+                                }
+                            }
+                            // Call contactless canvas RFID icon symbol
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Canvas(modifier = Modifier.size(20.dp)) {
+                                    drawArc(
+                                        color = if (isDark) Color(0xFF6366F1) else Color(0xFF4338CA),
+                                        startAngle = -45f,
+                                        sweepAngle = 90f,
+                                        useCenter = false,
+                                        style = Stroke(width = 3f, cap = StrokeCap.Round),
+                                        topLeft = Offset(2f, 2f),
+                                        size = Size(10f, 16f)
+                                    )
+                                    drawArc(
+                                        color = if (isDark) Color(0xFF6366F1) else Color(0xFF4338CA),
+                                        startAngle = -45f,
+                                        sweepAngle = 90f,
+                                        useCenter = false,
+                                        style = Stroke(width = 3f, cap = StrokeCap.Round),
+                                        topLeft = Offset(-4f, -4f),
+                                        size = Size(20f, 28f)
+                                    )
+                                    drawArc(
+                                        color = if (isDark) Color(0xFF6366F1) else Color(0xFF4338CA),
+                                        startAngle = -45f,
+                                        sweepAngle = 90f,
+                                        useCenter = false,
+                                        style = Stroke(width = 3f, cap = StrokeCap.Round),
+                                        topLeft = Offset(-10f, -10f),
+                                        size = Size(30f, 40f)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Smart Golden Microchip visual container
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Gold microchip canvas drawing
+                            Canvas(
+                                modifier = Modifier
+                                    .size(width = 38.dp, height = 28.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0xFFEAB308))
+                            ) {
+                                val w = size.width
+                                val h = size.height
+                                drawLine(Color(0xFF854D0E), Offset(w * 0.3f, 0f), Offset(w * 0.3f, h), strokeWidth = 2f)
+                                drawLine(Color(0xFF854D0E), Offset(w * 0.7f, 0f), Offset(w * 0.7f, h), strokeWidth = 2f)
+                                drawLine(Color(0xFF854D0E), Offset(0f, h * 0.5f), Offset(w, h * 0.5f), strokeWidth = 2f)
+                                drawCircle(Color.White.copy(alpha = 0.3f), radius = 3f, center = Offset(w / 2f, h / 2f))
+                            }
+
+                            Column {
+                                Text(
+                                    text = profile.fullName.ifBlank { "Unspecified Holder" }.uppercase(Locale.getDefault()),
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = if (isDark) Color.White else Color(0xFF0F172A),
+                                    letterSpacing = 0.5.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "PASS MEMBER ID: PAS-${profile.fullName.take(3).uppercase(Locale.getDefault())}-${(profile.dateOfBirth.hashCode() % 10000).coerceAtLeast(1000)}",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+
+                        // Card Footer stats (Blood group, Allergies alert)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Column {
+                                    Text("BLOOD GROUP", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        text = profile.bloodType.ifBlank { "--" },
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = if (profile.bloodType.isNotBlank()) EmergencyRed else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .width(1.dp)
+                                        .height(24.dp)
+                                        .background(MaterialTheme.colorScheme.outlineVariant)
+                                )
+                                Column {
+                                    Text("ALLERGIES", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        text = profile.allergies.ifBlank { "None Recorded" },
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (profile.allergies.isNotBlank() && !profile.allergies.equals("None", ignoreCase = true)) EmergencyRed else MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.widthIn(max = 140.dp)
+                                    )
+                                }
+                            }
+
+                            // Verified stamp
+                            Row(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(Icons.Filled.Verified, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(12.dp))
+                                Text("VERIFIED", fontSize = 8.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary, letterSpacing = 0.5.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. DEMOGRAPHIC VITALS Group
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f))
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "DEMOGRAPHIC IDENTIFICATION",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary,
+                        letterSpacing = 1.2.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    ProfileValueRow(label = "Primary Holder Name", value = profile.fullName, leadingIcon = Icons.Filled.Person)
+                    ProfileValueRow(label = "Patient Email Address", value = if (profile.userEmail.isBlank()) "john.doe@example.com" else profile.userEmail, leadingIcon = Icons.Filled.Email)
+                    ProfileValueRow(label = "Official Date of Birth", value = profile.dateOfBirth, leadingIcon = Icons.Filled.CalendarMonth)
+                    ProfileValueRow(label = "Organ Donor Authorization Status", value = if (profile.organDonor) "Authorized Organ Donor" else "No / Unspecified", leadingIcon = Icons.Filled.VolunteerActivism, highlightColor = if (profile.organDonor) MaterialTheme.colorScheme.primary else null)
+                }
+            }
+        }
+
+        // 4. CRITICAL CLINICAL ADVISORY Group
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.5.dp, EmergencyRed.copy(alpha = 0.35f)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = if (isEditing) "Edit Medical ID profile" else "MedPass Identity Data",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            text = "CRITICAL MEDICAL ADVISORY",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Black,
+                            color = EmergencyRed,
+                            letterSpacing = 1.2.sp,
+                            modifier = Modifier.padding(bottom = 8.dp)
                         )
-
-                        IconButton(
-                            onClick = {
-                                if (isEditing) {
-                                    onSave(
-                                        profile.copy(
-                                            fullName = name,
-                                            bloodType = bloodType,
-                                            dateOfBirth = dob,
-                                            allergies = allergies,
-                                            chronicConditions = conditions,
-                                            currentMedications = meds,
-                                            emergencyContactName = contactsName,
-                                            emergencyContactPhone = contactsPhone,
-                                            insuranceProvider = insurance,
-                                            insuranceNumber = policyId,
-                                            organDonor = donor
-                                        )
-                                    )
-                                }
-                                isEditing = !isEditing
-                            }
-                        ) {
-                            Icon(
-                                imageVector = if (isEditing) Icons.Filled.Beenhere else Icons.Filled.EditCalendar,
-                                contentDescription = if (isEditing) "Save profile" else "Edit profile",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
+                        Icon(Icons.Filled.Warning, null, tint = EmergencyRed, modifier = Modifier.size(16.dp))
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    ProfileValueRow(label = "Physiological Blood Type", value = profile.bloodType, leadingIcon = Icons.Filled.WaterDrop, highlightColor = EmergencyRed)
+                    ProfileValueRow(label = "Diagnosed Lethal Allergies", value = profile.allergies, leadingIcon = Icons.Filled.Warning, highlightColor = EmergencyRed)
+                    ProfileValueRow(label = "Active Chronic Conditions", value = profile.chronicConditions, leadingIcon = Icons.Filled.HeartBroken, highlightColor = UrgentGold)
+                    ProfileValueRow(label = "Ongoing Maintenance Medications", value = profile.currentMedications, leadingIcon = Icons.Filled.MedicalServices)
+                }
+            }
+        }
 
-                    if (isEditing) {
-                        OutlinedTextField(
-                            value = name,
-                            onValueChange = { name = it },
-                            label = { Text("Patient Full Name") },
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                        )
-                        OutlinedTextField(
-                            value = dob,
-                            onValueChange = { dob = it },
-                            label = { Text("Date of Birth (YYYY-MM-DD)") },
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                        )
+        // 5. INSURANCE & ASSISTANCE Group
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "EMERGENCY ASSISTANCE",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary,
+                        letterSpacing = 1.2.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
 
-                        Text("Select Blood Type", fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 4.dp))
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        ) {
-                            items(bloodTypesList) { bt ->
-                                FilterChip(
-                                    selected = bloodType == bt,
-                                    onClick = { bloodType = bt },
-                                    label = { Text(bt) }
-                                )
-                            }
-                        }
-
-                        OutlinedTextField(
-                            value = allergies,
-                            onValueChange = { allergies = it },
-                            label = { Text("Lethal Allergies (comma separated)") },
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                        )
-                        OutlinedTextField(
-                            value = conditions,
-                            onValueChange = { conditions = it },
-                            label = { Text("Chronic Conditions (comma separated)") },
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                        )
-                        OutlinedTextField(
-                            value = meds,
-                            onValueChange = { meds = it },
-                            label = { Text("Current Care Medications") },
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                        )
-                        OutlinedTextField(
-                            value = contactsName,
-                            onValueChange = { contactsName = it },
-                            label = { Text("Emergency Contact Name") },
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                        )
-                        OutlinedTextField(
-                            value = contactsPhone,
-                            onValueChange = { contactsPhone = it },
-                            label = { Text("Emergency Contact Phone Number") },
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
-                        )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth().clickable { donor = !donor },
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Checkbox(checked = donor, onCheckedChange = { donor = it })
-                            Text("Organ Donor Consent Approved", fontSize = 13.sp)
-                        }
-
-                    } else {
-                        // Display mode
-                        ProfileValueRow(label = "Full Name", value = profile.fullName, leadingIcon = Icons.Filled.Person)
-                        ProfileValueRow(label = "Date of Birth", value = profile.dateOfBirth, leadingIcon = Icons.Filled.CalendarMonth)
-                        ProfileValueRow(label = "Blood Group", value = profile.bloodType, leadingIcon = Icons.Filled.WaterDrop, highlightColor = EmergencyRed)
-                        ProfileValueRow(label = "Lethal Allergies", value = profile.allergies, leadingIcon = Icons.Filled.Warning, highlightColor = EmergencyRed)
-                        ProfileValueRow(label = "Chronic Conditions", value = profile.chronicConditions, leadingIcon = Icons.Filled.HeartBroken, highlightColor = UrgentGold)
-                        ProfileValueRow(label = "Active Medications", value = profile.currentMedications, leadingIcon = Icons.Filled.MedicalServices)
-                        ProfileValueRow(label = "Emergency Contact", value = "${profile.emergencyContactName} (${profile.emergencyContactPhone})", leadingIcon = Icons.Filled.PhoneInTalk)
-                        ProfileValueRow(label = "Organ Donor", value = if (profile.organDonor) "Yes, Approved" else "No / Unspecified", leadingIcon = Icons.Filled.VolunteerActivism)
-                    }
+                    ProfileValueRow(label = "First Responder Contact Name", value = profile.emergencyContactName, leadingIcon = Icons.Filled.PhoneInTalk)
+                    ProfileValueRow(label = "Emergency Telephone Helpline", value = profile.emergencyContactPhone, leadingIcon = Icons.Filled.Call, highlightColor = MaterialTheme.colorScheme.primary)
+                    ProfileValueRow(label = "Emergency Contact Email", value = if (profile.emergencyContactEmail.isBlank()) "jane.doe@example.com" else profile.emergencyContactEmail, leadingIcon = Icons.Filled.Email)
+                    ProfileValueRow(label = "Insurance Provider Name", value = profile.insuranceProvider.ifBlank { "Not Specified" }, leadingIcon = Icons.Filled.Shield)
+                    ProfileValueRow(label = "Insurance Cover Policy Number", value = profile.insuranceNumber.ifBlank { "Not Specified" }, leadingIcon = Icons.Filled.Shield)
                 }
             }
         }
@@ -2614,196 +3445,6 @@ fun ProfileValueRow(
         }
     }
     Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-}
-
-
-// --- TAB 3: DOCTOR SHARING ACCESS GATEWAY ---
-
-@Composable
-fun DoctorSharingGateway(
-    records: List<MedicalRecord>,
-    passcode: String?,
-    onGenerateCode: () -> Unit,
-    onClearCode: () -> Unit
-) {
-    val clipboardManager = LocalClipboardManager.current
-    var doctorConsoleCode by remember { mutableStateOf("") }
-    var isCodeVerifiedForDoctorScreen by remember { mutableStateOf(false) }
-
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        item {
-            // General clinical share info
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Secure Dr. Cloud Connector",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Instantly show files on any clinic's workstation screen. Generate a temporary encrypted lookup pass. No wires or paper binders needed.",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    if (passcode == null) {
-                        Button(
-                            onClick = onGenerateCode,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Filled.VpnKey, "Key")
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Generate Temporary Dr. Code")
-                        }
-                    } else {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
-                                .padding(16.dp)
-                        ) {
-                            Text("TEMPORARY PASSCODE", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            Text(
-                                text = passcode,
-                                fontSize = 36.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 4.sp,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Text("Expires in 10 minutes", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-
-                            OutlinedButton(
-                                onClick = {
-                                    clipboardManager.setText(AnnotatedString(passcode))
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("Copy PIN Link")
-                            }
-
-                            TextButton(onClick = onClearCode) {
-                                Text("Revoke Credentials", color = EmergencyRed)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // doctor terminal simulation block - extremely engaging UX detail!
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "SIMULATOR: Clinic Workstation Screen",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    )
-                    Text(
-                        text = "Type the 6-digit active passcode below to simulate what the Doctor would see on their medical workstation screen.",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-
-                    if (isCodeVerifiedForDoctorScreen) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFFE8F5E9))
-                                .padding(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("Doctor Console Connection Active", fontSize = 12.sp, color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold)
-                            TextButton(onClick = {
-                                isCodeVerifiedForDoctorScreen = false
-                                doctorConsoleCode = ""
-                            }) {
-                                Text("Log out Terminal")
-                            }
-                        }
-
-                        // Clinical View inside Doctor Simulation
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text("Active Clinical Patient Feed:", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(250.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.Black)
-                        ) {
-                            LazyColumn(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(12.dp)
-                            ) {
-                                item {
-                                    Text("CLINIC TERMINAL SECURE CONNECTION GATEWAY", color = Color.Green, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                                    Text("RESTRICTED TO PRE-VERIFIED HEALTH SYSTEMS", color = Color.Green, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                }
-                                items(records) { rec ->
-                                    Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                                        Text("> [${rec.category}] ${rec.title}", color = Color.Cyan, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
-                                        Text("  Patient: ${rec.patientName} | Date: ${SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(rec.date))}", color = Color.LightGray, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                                        Text("  Impressions: ${rec.summary}", color = Color.Green, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                                        Text("  Active treatments: ${rec.prescribedMeds}", color = Color.Yellow, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                                        Divider(color = Color.DarkGray, modifier = Modifier.padding(vertical = 4.dp))
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        OutlinedTextField(
-                            value = doctorConsoleCode,
-                            onValueChange = {
-                                if (it.length <= 6) doctorConsoleCode = it
-                            },
-                            label = { Text("Enter Clinical Doctor Passcode") },
-                            modifier = Modifier.fillMaxWidth(),
-                            trailingIcon = {
-                                Button(
-                                    onClick = {
-                                        if (doctorConsoleCode == passcode && passcode != null) {
-                                            isCodeVerifiedForDoctorScreen = true
-                                        } else {
-                                            isCodeVerifiedForDoctorScreen = false
-                                        }
-                                    },
-                                    enabled = doctorConsoleCode.length == 6
-                                ) {
-                                    Text("Verify")
-                                }
-                            }
-                        )
-                        if (doctorConsoleCode.isNotEmpty() && doctorConsoleCode != passcode) {
-                            Text("Wrong PIN code or expired. Generate active code above first.", color = EmergencyRed, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 
@@ -2912,31 +3553,17 @@ fun EmergencyFullBrightOverlay(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             EmergencyValueCard(label = "FULL NAME", value = profile.fullName, important = true)
+            EmergencyValueCard(label = "PATIENT EMAIL ADDRESS", value = if (profile.userEmail.isBlank()) "john.doe@example.com" else profile.userEmail, important = true)
             EmergencyValueCard(label = "BLOOD GROUP", value = profile.bloodType, important = true, isCriticalRedAlert = true)
             EmergencyValueCard(label = "LETHAL ALLERGIES", value = profile.allergies, important = true, isCriticalRedAlert = true)
             EmergencyValueCard(label = "CHRONIC MEDICAL CONDITIONS", value = profile.chronicConditions, important = true)
             EmergencyValueCard(label = "ACTIVE MEDICATION INTAKE", value = profile.currentMedications)
-            EmergencyValueCard(label = "PRIMARY EMERGENCY CONTACT", value = "${profile.emergencyContactName} : ${profile.emergencyContactPhone}", important = true)
-            EmergencyValueCard(label = "INSURANCE HEALTH PLAN ID", value = "${profile.insuranceProvider} | Plan #${profile.insuranceNumber}")
+            EmergencyValueCard(label = "PRIMARY EMERGENCY CONTACT NAME", value = profile.emergencyContactName, important = true)
+            EmergencyValueCard(label = "EMERGENCY CONTACT PHONE", value = profile.emergencyContactPhone, important = true)
+            EmergencyValueCard(label = "EMERGENCY CONTACT EMAIL", value = if (profile.emergencyContactEmail.isBlank()) "jane.doe@example.com" else profile.emergencyContactEmail, important = true)
+            EmergencyValueCard(label = "INSURANCE PROVIDER", value = profile.insuranceProvider.ifBlank { "Not Specified" })
+            EmergencyValueCard(label = "INSURANCE POLICY ID", value = profile.insuranceNumber.ifBlank { "Not Specified" })
         }
-
-        // Emergency validation QR Code
-        Box(
-            modifier = Modifier
-                .size(140.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(Color.LightGray.copy(alpha = 0.2f))
-                .padding(12.dp)
-        ) {
-            QrCodeCanvas(modifier = Modifier.fillMaxSize())
-        }
-
-        Text(
-            text = "SCAN FOR CLOUD HEALTH PASS CHECK-IN",
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.Black
-        )
 
         Button(
             onClick = onDismiss,
@@ -3292,7 +3919,8 @@ fun ProfileSduiScreen(
     viewModel: MedicalViewModel,
     emergencyProfile: EmergencyProfile,
     recordsCount: Int,
-    syncState: SyncUiState
+    syncState: SyncUiState,
+    onSaveProfile: (EmergencyProfile) -> Unit
 ) {
     val context = LocalContext.current
     val isDark = isSystemInDarkTheme()
@@ -3317,6 +3945,25 @@ fun ProfileSduiScreen(
         )
     }
 
+    var isEditing by remember { mutableStateOf(false) }
+
+    // Backup state bindings
+    var name by remember(emergencyProfile) { mutableStateOf(emergencyProfile.fullName) }
+    var dob by remember(emergencyProfile) { mutableStateOf(emergencyProfile.dateOfBirth) }
+    var bloodType by remember(emergencyProfile) { mutableStateOf(emergencyProfile.bloodType) }
+    var allergies by remember(emergencyProfile) { mutableStateOf(emergencyProfile.allergies) }
+    var conditions by remember(emergencyProfile) { mutableStateOf(emergencyProfile.chronicConditions) }
+    var meds by remember(emergencyProfile) { mutableStateOf(emergencyProfile.currentMedications) }
+    var contactName by remember(emergencyProfile) { mutableStateOf(emergencyProfile.emergencyContactName) }
+    var contactPhone by remember(emergencyProfile) { mutableStateOf(emergencyProfile.emergencyContactPhone) }
+    var insurance by remember(emergencyProfile) { mutableStateOf(emergencyProfile.insuranceProvider) }
+    var policyId by remember(emergencyProfile) { mutableStateOf(emergencyProfile.insuranceNumber) }
+    var donor by remember(emergencyProfile) { mutableStateOf(emergencyProfile.organDonor) }
+    var userEmail by remember(emergencyProfile) { mutableStateOf(emergencyProfile.userEmail) }
+    var emergencyContactEmail by remember(emergencyProfile) { mutableStateOf(emergencyProfile.emergencyContactEmail) }
+
+    val bloodTypesList = listOf("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-")
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -3326,64 +3973,419 @@ fun ProfileSduiScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 20.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.AccountCircle,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(26.dp)
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.AccountCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column {
+                    Text(
+                        text = if (isEditing) "Edit Profile Details" else "Health Profile ID",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Text(
+                        text = if (isEditing) "Enter updated demographic and health records" else "Local medical passport configuration layout",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
-            Spacer(modifier = Modifier.width(14.dp))
-            Column {
-                Text(
-                    text = "Dynamic Health Profile",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Text(
-                    text = "Layout driven dynamically via SDUI engine",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+
+            if (!isEditing) {
+                FilledTonalButton(
+                    onClick = { isEditing = true },
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Edit,
+                        contentDescription = "Edit Profile Info Button",
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Edit", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
 
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
 
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .weight(1f),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            items(sduiLayout.components) { component ->
-                SduiComponentRenderer(
-                    component = component,
-                    onAction = { actionKey ->
-                        when (actionKey) {
-                            "toggle_theme" -> {
-                                viewModel.toggleForceDarkTheme()
-                                Toast.makeText(context, "Theme toggled via dynamic SDUI action call", Toast.LENGTH_SHORT).show()
+        if (isEditing) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f),
+                contentPadding = PaddingValues(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item {
+                    Text(
+                        text = "Demographics & Identifiers",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Patient Full Name") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+                item {
+                    val calendar = Calendar.getInstance()
+                    var initialYear = calendar.get(Calendar.YEAR)
+                    var initialMonth = calendar.get(Calendar.MONTH)
+                    var initialDay = calendar.get(Calendar.DAY_OF_MONTH)
+
+                    val parts = dob.trim().split("-")
+                    if (parts.size == 3) {
+                        try {
+                            if (parts[0].length == 4) {
+                                val parsedYear = parts[0].toInt()
+                                val parsedMonth = parts[1].toInt()
+                                val parsedDay = parts[2].toInt()
+                                initialYear = parsedYear
+                                initialMonth = (parsedMonth - 1).coerceIn(0, 11)
+                                initialDay = parsedDay.coerceIn(1, 31)
+                            } else {
+                                val parsedDay = parts[0].toInt()
+                                val parsedMonth = parts[1].toInt()
+                                val parsedYear = parts[2].toInt()
+                                initialYear = parsedYear
+                                initialMonth = (parsedMonth - 1).coerceIn(0, 11)
+                                initialDay = parsedDay.coerceIn(1, 31)
                             }
-                            "sync_cloud" -> {
-                                viewModel.syncRecordsToCloud()
-                                Toast.makeText(context, "Sync requested via dynamic SDUI action call", Toast.LENGTH_SHORT).show()
+                        } catch (e: Exception) {
+                            initialYear = calendar.get(Calendar.YEAR)
+                            initialMonth = calendar.get(Calendar.MONTH)
+                            initialDay = calendar.get(Calendar.DAY_OF_MONTH)
+                        }
+                    }
+
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = dob,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Date of Birth (DD-MM-YYYY)") },
+                            trailingIcon = {
+                                Icon(
+                                    imageVector = Icons.Filled.CalendarMonth,
+                                    contentDescription = "Calendar Picker Icon",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable {
+                                    val datePickerDialog = android.app.DatePickerDialog(
+                                        context,
+                                        { _, year, month, dayOfMonth ->
+                                            val formattedDay = String.format("%02d", dayOfMonth)
+                                            val formattedMonth = String.format("%02d", month + 1)
+                                            dob = "$formattedDay-$formattedMonth-$year"
+                                        },
+                                        initialYear,
+                                        initialMonth,
+                                        initialDay
+                                    )
+                                    datePickerDialog.show()
+                                }
+                        )
+                    }
+                }
+                item {
+                    var showBloodTypeDropdown by remember { mutableStateOf(false) }
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = bloodType,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Blood Group") },
+                            trailingIcon = {
+                                Icon(
+                                    imageVector = Icons.Filled.ArrowDropDown,
+                                    contentDescription = "Select Blood Group Option",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable { showBloodTypeDropdown = true }
+                        )
+                        DropdownMenu(
+                            expanded = showBloodTypeDropdown,
+                            onDismissRequest = { showBloodTypeDropdown = false },
+                            modifier = Modifier.fillMaxWidth(0.85f)
+                        ) {
+                            bloodTypesList.forEach { bt ->
+                                DropdownMenuItem(
+                                    text = { Text(bt, fontWeight = FontWeight.Bold) },
+                                    onClick = {
+                                        bloodType = bt
+                                        showBloodTypeDropdown = false
+                                    }
+                                )
                             }
                         }
                     }
-                )
+                }
+                item {
+                    OutlinedTextField(
+                        value = userEmail,
+                        onValueChange = { userEmail = it },
+                        label = { Text("Patient Email Address") },
+                        placeholder = { Text("john.doe@example.com") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+                item {
+                    Text(
+                        text = "Medical Profile Baseline",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = allergies,
+                        onValueChange = { allergies = it },
+                        label = { Text("Lethal Allergies (comma separated)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = conditions,
+                        onValueChange = { conditions = it },
+                        label = { Text("Chronic Conditions (comma separated)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = meds,
+                        onValueChange = { meds = it },
+                        label = { Text("Current Care Medications") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+                item {
+                    Text(
+                        text = "Emergency Responder Contact",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = contactName,
+                        onValueChange = { contactName = it },
+                        label = { Text("Emergency Contact Name") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = contactPhone,
+                        onValueChange = { contactPhone = it },
+                        label = { Text("Emergency Contact Phone (e.g., STD +91-98765-43210)") },
+                        placeholder = { Text("+91-98765-43210") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = emergencyContactEmail,
+                        onValueChange = { emergencyContactEmail = it },
+                        label = { Text("Emergency Contact Email") },
+                        placeholder = { Text("jane.doe@example.com") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+                item {
+                    Text(
+                        text = "Insurance Plan & Organ Consent",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = insurance,
+                        onValueChange = { insurance = it },
+                        label = { Text("Insurance Provider Name") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = policyId,
+                        onValueChange = { policyId = it },
+                        label = { Text("Insurance Cover Policy Number") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { donor = !donor }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Checkbox(checked = donor, onCheckedChange = { donor = it })
+                        Text("Approved Registered Organ Donor", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                // Cancel and restore values
+                                name = emergencyProfile.fullName
+                                dob = emergencyProfile.dateOfBirth
+                                bloodType = emergencyProfile.bloodType
+                                allergies = emergencyProfile.allergies
+                                conditions = emergencyProfile.chronicConditions
+                                meds = emergencyProfile.currentMedications
+                                contactName = emergencyProfile.emergencyContactName
+                                contactPhone = emergencyProfile.emergencyContactPhone
+                                insurance = emergencyProfile.insuranceProvider
+                                policyId = emergencyProfile.insuranceNumber
+                                donor = emergencyProfile.organDonor
+                                userEmail = emergencyProfile.userEmail
+                                emergencyContactEmail = emergencyProfile.emergencyContactEmail
+
+                                isEditing = false
+                                Toast.makeText(context, "Editing Cancelled", Toast.LENGTH_SHORT).show()
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp)
+                        ) {
+                            Text("Cancel", fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = {
+                                // Save values
+                                val updated = emergencyProfile.copy(
+                                    fullName = name,
+                                    dateOfBirth = dob,
+                                    bloodType = bloodType,
+                                    allergies = allergies,
+                                    chronicConditions = conditions,
+                                    currentMedications = meds,
+                                    emergencyContactName = contactName,
+                                    emergencyContactPhone = contactPhone,
+                                    insuranceProvider = insurance,
+                                    insuranceNumber = policyId,
+                                    organDonor = donor,
+                                    userEmail = userEmail,
+                                    emergencyContactEmail = emergencyContactEmail
+                                )
+                                onSaveProfile(updated)
+                                isEditing = false
+                                Toast.makeText(context, "Profile Changes Saved Successfully", Toast.LENGTH_SHORT).show()
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Text("Save", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(sduiLayout.components) { component ->
+                    SduiComponentRenderer(
+                        component = component,
+                        onAction = { actionKey ->
+                            when (actionKey) {
+                                "toggle_theme" -> {
+                                    viewModel.toggleForceDarkTheme()
+                                    Toast.makeText(context, "Theme toggled via dynamic SDUI action call", Toast.LENGTH_SHORT).show()
+                                }
+                                "sync_cloud" -> {
+                                    viewModel.syncRecordsToCloud()
+                                    Toast.makeText(context, "Sync requested via dynamic SDUI action call", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    )
+                }
             }
         }
     }
@@ -3574,6 +4576,7 @@ fun SduiComponentRenderer(
                             "Heart" -> Icons.Filled.Favorite
                             "Contact" -> Icons.Filled.ContactPhone
                             "Shield" -> Icons.Filled.Shield
+                            "Email" -> Icons.Filled.Email
                             else -> Icons.Filled.Star
                         }
                         Row(
@@ -3661,6 +4664,365 @@ fun SduiComponentRenderer(
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     )
+                }
+            }
+        }
+    }
+}
+
+// --- ADD MANUAL RECORD DIALOG (HIGH FIDELITY MATERIAL 3 DESIGN) ---
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddRecordDialog(
+    onDismiss: () -> Unit,
+    onSave: (
+        title: String,
+        patientName: String,
+        doctorName: String,
+        clinicOrHospital: String,
+        category: String,
+        summary: String,
+        diagnoses: String,
+        prescribedMeds: String,
+        department: String,
+        diseaseOrCheckupType: String
+    ) -> Unit
+) {
+    var title by remember { mutableStateOf("") }
+    var patientName by remember { mutableStateOf("") }
+    var doctorName by remember { mutableStateOf("") }
+    var clinicOrHospital by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf("Prescription") }
+    var department by remember { mutableStateOf("General Medicine") }
+    var diseaseOrCheckupType by remember { mutableStateOf("General Wellness") }
+    var summary by remember { mutableStateOf("") }
+    var diagnoses by remember { mutableStateOf("") }
+    var prescribedMeds by remember { mutableStateOf("") }
+
+    // Dropdown triggers
+    var showCategoryDropdown by remember { mutableStateOf(false) }
+    var showDeptDropdown by remember { mutableStateOf(false) }
+    var showDiseaseDropdown by remember { mutableStateOf(false) }
+
+    val categoriesList = listOf("Prescription", "Lab Report", "Vaccine", "Discharge Summary", "Radiology / Scan", "Other")
+    val departmentsList = listOf("General Medicine", "Cardiology", "Neurology", "Pediatrics", "Orthopedics", "Dermatology", "Oncology", "ENT")
+    val diseasesList = listOf("General Wellness", "Annual Physical", "Hypertension Control", "Diabetes Checkup", "Flu / Viral Infection", "Injury / Trauma Check", "Allergies follow-up", "Cardiac Assessment")
+
+    val isDark = isSystemInDarkTheme()
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.9f)
+                .clip(RoundedCornerShape(24.dp))
+                .border(1.5.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(24.dp)),
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        MedLifeStyleLogo(sizeDp = 36.dp)
+                        Text(
+                            text = "Add Medical Record",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Filled.Close, contentDescription = "Close dialog")
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp, modifier = Modifier.padding(vertical = 12.dp))
+
+                // Scrollable fields
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        label = { Text("Record Title *") },
+                        placeholder = { Text("e.g. Lipitor Prescription, Blood Report") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                        )
+                    )
+
+                    // Category dropdown selector
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = category,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Category") },
+                            trailingIcon = {
+                                IconButton(onClick = { showCategoryDropdown = !showCategoryDropdown }) {
+                                    Icon(Icons.Filled.ArrowDropDown, "Select category")
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                            )
+                        )
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable { showCategoryDropdown = true }
+                        )
+                        DropdownMenu(
+                            expanded = showCategoryDropdown,
+                            onDismissRequest = { showCategoryDropdown = false },
+                            modifier = Modifier.fillMaxWidth(0.85f)
+                        ) {
+                            categoriesList.forEach { cat ->
+                                DropdownMenuItem(
+                                    text = { Text(cat) },
+                                    onClick = {
+                                        category = cat
+                                        showCategoryDropdown = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    // Department dropdown selector
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = department,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Medical Department") },
+                            trailingIcon = {
+                                IconButton(onClick = { showDeptDropdown = !showDeptDropdown }) {
+                                    Icon(Icons.Filled.ArrowDropDown, "Select department")
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                            )
+                        )
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable { showDeptDropdown = true }
+                        )
+                        DropdownMenu(
+                            expanded = showDeptDropdown,
+                            onDismissRequest = { showDeptDropdown = false },
+                            modifier = Modifier.fillMaxWidth(0.85f)
+                        ) {
+                            departmentsList.forEach { dept ->
+                                DropdownMenuItem(
+                                    text = { Text(dept) },
+                                    onClick = {
+                                        department = dept
+                                        showDeptDropdown = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    // Disease / Checkup dropdown selector
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = diseaseOrCheckupType,
+                            onValueChange = { diseaseOrCheckupType = it },
+                            label = { Text("Condition / Checkup Focus") },
+                            trailingIcon = {
+                                IconButton(onClick = { showDiseaseDropdown = !showDiseaseDropdown }) {
+                                    Icon(Icons.Filled.ArrowDropDown, "Select prebuilt condition")
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                            )
+                        )
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable { showDiseaseDropdown = true }
+                        )
+                        DropdownMenu(
+                            expanded = showDiseaseDropdown,
+                            onDismissRequest = { showDiseaseDropdown = false },
+                            modifier = Modifier.fillMaxWidth(0.85f)
+                        ) {
+                            diseasesList.forEach { disease ->
+                                DropdownMenuItem(
+                                    text = { Text(disease) },
+                                    onClick = {
+                                        diseaseOrCheckupType = disease
+                                        showDiseaseDropdown = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = patientName,
+                        onValueChange = { patientName = it },
+                        label = { Text("Patient Name") },
+                        placeholder = { Text("e.g. John Doe, Self") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                        )
+                    )
+
+                    OutlinedTextField(
+                        value = doctorName,
+                        onValueChange = { doctorName = it },
+                        label = { Text("Clinician / Doctor Name") },
+                        placeholder = { Text("e.g. Dr. Sarah Jenkins") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                        )
+                    )
+
+                    OutlinedTextField(
+                        value = clinicOrHospital,
+                        onValueChange = { clinicOrHospital = it },
+                        label = { Text("Clinic or Hospital") },
+                        placeholder = { Text("e.g. Metro Medical Center") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                        )
+                    )
+
+                    OutlinedTextField(
+                        value = summary,
+                        onValueChange = { summary = it },
+                        label = { Text("Executive Summary Description") },
+                        placeholder = { Text("Provide details about the medical visit or results...") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        minLines = 3,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                        )
+                    )
+
+                    OutlinedTextField(
+                        value = diagnoses,
+                        onValueChange = { diagnoses = it },
+                        label = { Text("Coded Diagnoses (Comma Separated)") },
+                        placeholder = { Text("e.g. Hypertension, Mild Bronchitis") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                        )
+                    )
+
+                    OutlinedTextField(
+                        value = prescribedMeds,
+                        onValueChange = { prescribedMeds = it },
+                        label = { Text("Prescribed Medications (Comma Separated)") },
+                        placeholder = { Text("e.g. Lipitor 10mg QD, Amoxicillin 500mg TID") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                        )
+                    )
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp, modifier = Modifier.padding(vertical = 12.dp))
+
+                // Action buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Cancel")
+                    }
+
+                    Button(
+                        onClick = {
+                            if (title.isNotBlank()) {
+                                onSave(
+                                    title,
+                                    patientName,
+                                    doctorName,
+                                    clinicOrHospital,
+                                    category,
+                                    summary,
+                                    diagnoses,
+                                    prescribedMeds,
+                                    department,
+                                    diseaseOrCheckupType
+                                )
+                            }
+                        },
+                        enabled = title.isNotBlank(),
+                        modifier = Modifier.weight(1.5f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Text("Save Record", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }

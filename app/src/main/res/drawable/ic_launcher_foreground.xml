@@ -4,17 +4,54 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    
-    <!-- Outer medical shield ring -->
-    <path 
-        android:strokeColor="#FFFFFF" 
-        android:strokeWidth="4" 
-        android:fillColor="#00000000" 
-        android:pathData="M 54, 18 A 36, 36 0 1, 1 53.99, 18 Z" />
 
-    <!-- Center Filled medical cross -->
+    <!-- Outermost circular orbit gradient colored ring -->
+    <path
+        android:strokeColor="#22D3EE"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M 54,16 A 38,38 0 1,1 53.99,16 Z" />
+
+    <!-- Secondary offset aesthetic orbit ring -->
+    <path
+        android:strokeColor="#84CC16"
+        android:strokeWidth="1.2"
+        android:fillColor="#00000000"
+        android:pathData="M 54,23 A 31,31 0 1,1 53.99,23 Z" />
+
+    <!-- Medical cross background highlight/glow -->
+    <path
+        android:fillColor="#3314B8A6"
+        android:pathData="M 44,44 H 64 V 64 H 44 Z" />
+
+    <!-- Rounded horizontal bar of cross -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M 38,47 H 70 V 61 H 38 Z M 47,38 H 61 V 70 H 47 Z" />
-        
+        android:pathData="M 33,48 H 75 Q 77,48 77,54 Q 77,60 75,60 H 33 Q 31,60 31,54 Q 31,48 33,48 Z" />
+
+    <!-- Rounded vertical bar of cross -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 48,33 V 75 Q 48,77 54,77 Q 60,77 60,75 V 33 Q 60,31 54,31 Q 48,31 48,33 Z" />
+
+    <!-- Central design cutout 'S' line in dark teal to make cross dynamic -->
+    <path
+        android:strokeColor="#0F766E"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M 47,43 C 40,47 40,51 54,54 C 68,57 68,61 61,65" />
+
+    <!-- Top-Right Orbit Node Circle Area -->
+    <path
+        android:fillColor="#84CC16"
+        android:pathData="M 81,27 m -4.5,0 a 4.5,4.5 0 1,1 9,0 a 4.5,4.5 0 1,1 -9,0" />
+
+    <!-- Bottom-Left Orbit Node Circle Area -->
+    <path
+        android:fillColor="#06B6D4"
+        android:pathData="M 27,81 m -4.5,0 a 4.5,4.5 0 1,1 9,0 a 4.5,4.5 0 1,1 -9,0" />
+
 </vector>
